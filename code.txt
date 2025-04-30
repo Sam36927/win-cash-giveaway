@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Giveaway Entry System</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f0f2f5;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+            margin: 20px;
+        }
+
+        .form-toggle {
+            display: flex;
+            margin-bottom: 1.5rem;
+            gap: 10px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: #e0e0e0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+
+        .toggle-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #codeDisplay {
+            text-align: center;
+            padding: 2rem;
+            background: #e8f4ff;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+
+        .status {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+
+        /* QR Code Styles */
+        .qr-section {
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+
+        #qrCode {
+            width: 200px;
+            height: 200px;
+            margin: 10px auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .upi-details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .upi-details p {
+            margin: 0.5rem 0;
+            font-size: 0.9em;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Authentication Section -->
+        <div id="authSection">
+            <div class="form-toggle">
+                <button class="toggle-btn active" onclick="showForm('signup')">Sign Up</button>
+                <button class="toggle-btn" onclick="showForm('login')">Login</button>
+            </div>
+
+            <form id="signupForm" onsubmit="handleAuth(event, 'signup')">
+                <div class="form-group">
+                    <input type="text" placeholder="Full Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" placeholder="Password (min 6 characters)" minlength="6" required>
+                </div>
+                <button type="submit">Continue</button>
+            </form>
+
+            <form id="loginForm" class="hidden" onsubmit="handleAuth(event, 'login')">
+                <div class="form-group">
+                    <input type="email" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" placeholder="Password" required>
+                </div>
+                <button type="submit">Continue</button>
+            </form>
+        </div>
+
+        <!-- Payment Section -->
+        <div id="paymentSection" class="hidden">
+            <h3 style="text-align: center; margin-bottom: 1.5rem;">Complete Payment of ₹11</h3>
+            <div class="status" id="paymentStatus"></div>
+            
+            <button onclick="initiateGPayPayment()">
+                Pay with Google Pay
+            </button>
+
+            <!-- QR Code Section for PC Users -->
+            <div class="qr-section" id="qrSection">
+                <p>For PC Users:</p>
+                <div id="qrCode"></div>
+                <div class="upi-details">
+                    <p>UPI ID: <strong>trtrading1993@oksbi</strong></p>
+                    <p>Name: <strong>Win Cash Giveaway</strong></p>
+                    <p>Amount: ₹11</p>
+                    <p>Note: Include your email in payment note</p>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 1rem; color: #666;">
+                You'll be redirected to Google Pay app
+            </p>
+        </div>
+
+        <!-- Code Display Section -->
+        <div id="codeSection" class="hidden">
+            <div id="codeDisplay">
+                <h2 style="margin-bottom: 1rem;">🎉 Your Entry Code 🎉</h2>
+                <p style="font-size: 1.8rem; font-weight: bold;" id="uniqueCode"></p>
+                <small style="color: #666;">This code will be used for winner announcement</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const UPI_ID = 'trtrading1993@oksbi';
+        const BUSINESS_NAME = 'Win Cash Giveaway';
+        
+        // Mock Database (Replace with real database in production)
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        let entries = JSON.parse(localStorage.getItem('entries')) || [];
+        let currentUser = null;
+
+        // Authentication Handling
+        function showForm(formType) {
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('form').forEach(form => form.classList.add('hidden'));
+            
+            document.querySelector(`#${formType}Form`).classList.remove('hidden');
+            event.currentTarget.classList.add('active');
+        }
+
+        function handleAuth(e, type) {
+            e.preventDefault();
+            const elements = e.target.elements;
+            
+            const userData = {
+                name: type === 'signup' ? elements[0].value : null,
+                email: type === 'signup' ? elements[1].value : elements[0].value,
+                password: type === 'signup' ? elements[2].value : elements[1].value
+            };
+
+            // Validation
+            if(type === 'signup') {
+                if(users.some(u => u.email === userData.email)) {
+                    showStatus('Email already registered!', 'error');
+                    return;
+                }
+                users.push({ ...userData, entries: [] });
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+            
+            // Login verification
+            const user = users.find(u => u.email === userData.email && u.password === userData.password);
+            if(!user) {
+                showStatus('Invalid credentials!', 'error');
+                return;
+            }
+
+            currentUser = user;
+            showPaymentSection();
+        }
+
+        // Payment Handling
+        function showPaymentSection() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('paymentSection').classList.remove('hidden');
+            
+            // Show QR code for PC users
+            if(!isMobile()) {
+                document.getElementById('qrSection').style.display = 'block';
+                generateQRCode();
+            }
+        }
+
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        function generateQRCode() {
+            const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(BUSINESS_NAME)}&am=11&tn=GiveawayEntry`;
+            const qrUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(upiLink)}`;
+            
+            document.getElementById('qrCode').innerHTML = `
+                <img src="${qrUrl}" alt="Google Pay QR Code" style="width:100%;height:100%">
+            `;
+        }
+
+        function initiateGPayPayment() {
+            const paymentLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(BUSINESS_NAME)}&am=11&tn=GiveawayEntry`;
+            
+            // Open Google Pay
+            window.location.href = paymentLink;
+            
+            // Start payment verification check
+            setTimeout(verifyPayment, 3000);
+        }
+
+        function verifyPayment() {
+            // In production: Implement actual payment verification
+            const isVerified = confirm('Did you complete the payment? (Simulation)');
+            
+            if(isVerified) {
+                handlePaymentSuccess();
+            } else {
+                showStatus('Payment verification failed. Please try again.', 'error');
+            }
+        }
+
+        function handlePaymentSuccess() {
+            const entryCode = generateUniqueCode();
+            
+            // Store entry
+            entries.push({
+                code: entryCode,
+                email: currentUser.email,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('entries', JSON.stringify(entries));
+            
+            // Show code
+            document.getElementById('paymentSection').classList.add('hidden');
+            document.getElementById('codeSection').classList.remove('hidden');
+            document.getElementById('uniqueCode').textContent = entryCode;
+        }
+
+        // Helper Functions
+        function generateUniqueCode() {
+            return `GW-${Date.now().toString().slice(-8)}-${Math.random().toString(36).substr(2, 3).toUpperCase()}`;
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('paymentStatus');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+        }
+
+        // Admin Function (Run in console)
+        function selectWinner() {
+            const entries = JSON.parse(localStorage.getItem('entries')) || [];
+            if(entries.length === 0) return alert('No entries yet!');
+            
+            const winner = entries[Math.floor(Math.random() * entries.length)];
+            alert(`Winner Code: ${winner.code}\nEmail: ${winner.email}`);
+        }
+    </script>
+</body>
+</html>
